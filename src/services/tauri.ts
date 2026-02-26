@@ -33,8 +33,8 @@ export async function selectOutputDir(): Promise<string | null> {
 }
 
 export async function startEncode(params: EncodeParams): Promise<string> {
-	// send params object directly (not nested) so Tauri command can deserialize fields
-	return invoke<string>("start_encode", params as unknown as Record<string, unknown>);
+	// wrap params under the key `params` to match the Rust command signature
+	return invoke<string>("start_encode", { params } as unknown as Record<string, unknown>);
 }
 
 export async function stopEncode(): Promise<void> {
