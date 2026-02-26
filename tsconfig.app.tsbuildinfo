@@ -1,0 +1,1 @@
+{"root":["./src/app.tsx","./src/main.tsx","./src/vite-env.d.ts","./src/components/encodingparams.tsx","./src/components/fileselector.tsx","./src/components/progresspanel.tsx","./src/components/index.ts","./src/hooks/useencode.ts","./src/services/tauri.ts","./src/types/encode.ts"],"version":"5.9.3"}
