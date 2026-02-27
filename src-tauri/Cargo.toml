@@ -22,6 +22,7 @@ tauri = { version = "2.10.0", features = [] }
 tauri-plugin-dialog = "2"
 tauri-plugin-shell = "2"
 tauri-plugin-log = "2"
+dirs-next = "2"
 
 [profile.release]
 # 启用链接时优化，显著提升运行时性能

@@ -27,6 +27,7 @@ pub fn run() {
             encode::stop_encode,
             encode::get_ffmpeg_version,
             encode::get_video_info,
+            encode::get_default_output_dir,
         ])
         .run(tauri::generate_context!())
         .expect("启动 Tauri 应用失败");

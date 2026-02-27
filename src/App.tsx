@@ -18,6 +18,7 @@ import { useCallback, useEffect, useState } from "react";
 import { EncodingParams, FileSelector, ProgressPanel } from "@/components";
 import { useEncode } from "@/hooks/useEncode";
 import {
+	getDefaultOutputDir,
 	getVideoInfo,
 	selectOutputDir,
 	selectSubtitleFile,
@@ -238,7 +239,7 @@ export default function App() {
 
 	const [outputFormat, setOutputFormat] = useState<OutputFormat>("mp4");
 	const [videoCodec, setVideoCodec] = useState<VideoCodec>("libx264");
-	const [crf, setCrf] = useState(23);
+	const [crf, setCrf] = useState(18);
 	const [subtitleEncoding, setSubtitleEncoding] = useState<SubtitleEncoding>("utf8");
 	const [subtitleStyle, setSubtitleStyle] = useState<SubtitleStyle>("default");
 
@@ -274,10 +275,19 @@ export default function App() {
 	const handleStart = useCallback(async () => {
 		if (!videoPath || !subtitlePath) return;
 
+		let finalOutput = outputDir;
+		if (!finalOutput) {
+			try {
+				finalOutput = await getDefaultOutputDir();
+			} catch {
+				finalOutput = videoPath.substring(0, videoPath.lastIndexOf("\\"));
+			}
+		}
+
 		const params: EncodeParams = {
 			videoPath,
 			subtitlePath,
-			outputDir: outputDir || videoPath.substring(0, videoPath.lastIndexOf("\\")),
+			outputDir: finalOutput,
 			outputFormat,
 			videoCodec,
 			crf,
@@ -375,7 +385,7 @@ export default function App() {
 						title="输出目录"
 						path={outputDir}
 						onBrowse={handleSelectOutput}
-						placeholder="选择输出目录（默认与视频同目录）"
+						placeholder="选择输出目录（默认 视频/FFSub）"
 						infoItems={[]}
 					/>
 

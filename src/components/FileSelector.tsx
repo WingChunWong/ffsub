@@ -66,14 +66,16 @@ export function FileSelector({ title, path, onBrowse, placeholder, infoItems }: 
 					浏览
 				</Button>
 			</div>
-			<div className={styles.infoPanel}>
-				{infoItems.map((item) => (
-					<div key={item.label} className={styles.infoRow}>
-						<Text weight="semibold">{item.label}:</Text>
-						<Text>{item.value}</Text>
-					</div>
-				))}
-			</div>
+			{infoItems.length > 0 && (
+				<div className={styles.infoPanel}>
+					{infoItems.map((item) => (
+						<div key={item.label} className={styles.infoRow}>
+							<Text weight="semibold">{item.label}:</Text>
+							<Text>{item.value}</Text>
+						</div>
+					))}
+				</div>
+			)}
 		</Card>
 	);
 }

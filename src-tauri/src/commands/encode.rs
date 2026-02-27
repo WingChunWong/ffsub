@@ -87,3 +87,36 @@ pub async fn get_ffmpeg_version() -> Result<String, String> {
 pub async fn get_video_info(path: String) -> Result<VideoInfo, String> {
     runner::probe_video_info(&path)
 }
+
+/// 获取默认输出目录（优先系统视频目录），并在其下创建 `FFSub` 子文件夹
+#[tauri::command]
+pub async fn get_default_output_dir() -> Result<String, String> {
+    // 试图使用系统视频目录
+    if let Some(mut dir) = dirs_next::video_dir() {
+        dir.push("FFSub");
+        std::fs::create_dir_all(&dir).map_err(|e| format!("创建目录失败: {e}"))?;
+        return Ok(dir.to_string_lossy().to_string());
+    }
+
+    // 若系统视频目录不可用，尝试常见本地化名称
+    if let Some(home) = dirs_next::home_dir() {
+        let candidates = ["Videos", "视频", "Movies"]; // 常见英文/中文/Mac 名称
+        for name in &candidates {
+            let mut p = home.clone();
+            p.push(name);
+            if p.exists() {
+                p.push("FFSub");
+                std::fs::create_dir_all(&p).map_err(|e| format!("创建目录失败: {e}"))?;
+                return Ok(p.to_string_lossy().to_string());
+            }
+        }
+
+        // 最后回退到主目录下的 FFSub
+        let mut p = home;
+        p.push("FFSub");
+        std::fs::create_dir_all(&p).map_err(|e| format!("创建目录失败: {e}"))?;
+        return Ok(p.to_string_lossy().to_string());
+    }
+
+    Err("无法确定默认输出目录".to_string())
+}

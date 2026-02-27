@@ -49,6 +49,10 @@ export async function getFFmpegVersion(): Promise<string> {
 	return invoke<string>("get_ffmpeg_version");
 }
 
+export async function getDefaultOutputDir(): Promise<string> {
+	return invoke<string>("get_default_output_dir");
+}
+
 export function onEncodeProgress(callback: (progress: EncodeProgress) => void): () => void {
 	let unlisten: (() => void) | undefined;
 	listen<EncodeProgress>("encode-progress", (event) => {
