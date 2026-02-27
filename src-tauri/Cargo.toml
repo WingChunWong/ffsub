@@ -22,3 +22,13 @@ tauri = { version = "2.10.0", features = [] }
 tauri-plugin-dialog = "2"
 tauri-plugin-shell = "2"
 tauri-plugin-log = "2"
+
+[profile.release]
+# 启用链接时优化，显著提升运行时性能
+lto = true
+# 单 codegen unit 最大化优化机会
+codegen-units = 1
+# 优化级别 3
+opt-level = 3
+# 剥离调试符号，减小二进制体积
+strip = true

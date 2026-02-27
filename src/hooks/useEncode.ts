@@ -26,6 +26,8 @@ const initialState: EncodeState = {
 	error: null,
 };
 
+const MAX_LOGS = 500;
+
 function encodeReducer(state: EncodeState, action: EncodeAction): EncodeState {
 	switch (action.type) {
 		case "START":
@@ -36,8 +38,13 @@ function encodeReducer(state: EncodeState, action: EncodeAction): EncodeState {
 			};
 		case "PROGRESS":
 			return { ...state, progress: action.payload };
-		case "LOG":
-			return { ...state, logs: [...state.logs, action.payload] };
+		case "LOG": {
+			const newLogs = [...state.logs, action.payload];
+			return {
+				...state,
+				logs: newLogs.length > MAX_LOGS ? newLogs.slice(-MAX_LOGS) : newLogs,
+			};
+		}
 		case "COMPLETE":
 			return {
 				...state,

@@ -52,11 +52,12 @@ export function ProgressPanel({ state }: ProgressPanelProps) {
 	const styles = useStyles();
 	const logRef = useRef<HTMLDivElement>(null);
 
+	const logsLength = state.logs.length;
 	useEffect(() => {
-		if (logRef.current) {
+		if (logRef.current && logsLength > 0) {
 			logRef.current.scrollTop = logRef.current.scrollHeight;
 		}
-	}, []);
+	}, [logsLength]);
 
 	const percentage = state.progress?.percentage ?? 0;
 	const color =
@@ -76,7 +77,17 @@ export function ProgressPanel({ state }: ProgressPanelProps) {
 				}
 			/>
 
-			<ProgressBar max={100} value={state.status === "idle" ? 0 : percentage} color={color} />
+			<ProgressBar
+				max={100}
+				value={
+					state.status === "running" && percentage === 0
+						? undefined
+						: state.status === "idle"
+							? 0
+							: percentage
+				}
+				color={color}
+			/>
 
 			<div className={styles.progressInfo}>
 				<Text>{statusLabel(state.status)}</Text>
