@@ -162,11 +162,31 @@ function ThemeToggleButton({ isDark, onToggle }: { isDark: boolean; onToggle: ()
 			style={btnStyle}
 		>
 			{isDark ? (
-				<span style={{ ...iconStyle, transform: sunTransform, display: 'flex', width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center' }}>
+				<span
+					style={{
+						...iconStyle,
+						transform: sunTransform,
+						display: "flex",
+						width: "100%",
+						height: "100%",
+						alignItems: "center",
+						justifyContent: "center",
+					}}
+				>
 					<SunIcon width={18} height={18} />
 				</span>
 			) : (
-				<span style={{ ...iconStyle, transform: moonTransform, display: 'flex', width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center' }}>
+				<span
+					style={{
+						...iconStyle,
+						transform: moonTransform,
+						display: "flex",
+						width: "100%",
+						height: "100%",
+						alignItems: "center",
+						justifyContent: "center",
+					}}
+				>
 					<MoonIcon width={18} height={18} />
 				</span>
 			)}
@@ -270,7 +290,7 @@ export default function App() {
 
 	return (
 		<FluentProvider theme={theme}>
-			<div className={styles.root} style={{ transition: 'background-color 300ms, color 300ms' }}>
+			<div className={styles.root} style={{ transition: "background-color 300ms, color 300ms" }}>
 				<div className={styles.container}>
 					{/* Header */}
 					<div className={styles.header}>
