@@ -242,6 +242,8 @@ export default function App() {
 	const [subtitleEncoding, setSubtitleEncoding] = useState<SubtitleEncoding>("utf8");
 	const [subtitleStyle, setSubtitleStyle] = useState<SubtitleStyle>("default");
 
+	// 不再自动读取 ASS 内部样式名
+
 	const { state: encodeState, start, stop } = useEncode();
 	const isRunning = encodeState.status === "running";
 

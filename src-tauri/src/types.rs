@@ -12,6 +12,7 @@ pub struct EncodeParams {
     pub crf: i32,
     pub subtitle_encoding: String,
     pub subtitle_style: String,
+    pub subtitle_style_name: Option<String>,
 }
 
 /// 编码进度信息，通过事件推送到前端

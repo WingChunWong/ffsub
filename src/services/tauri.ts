@@ -49,6 +49,10 @@ export async function getFFmpegVersion(): Promise<string> {
 	return invoke<string>("get_ffmpeg_version");
 }
 
+export async function getSubtitleStyles(path: string): Promise<string[]> {
+	return invoke<string[]>("get_subtitle_styles", { path });
+}
+
 export function onEncodeProgress(callback: (progress: EncodeProgress) => void): () => void {
 	let unlisten: (() => void) | undefined;
 	listen<EncodeProgress>("encode-progress", (event) => {
