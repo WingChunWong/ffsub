@@ -14,7 +14,7 @@
     "lint": "biome lint src/",
     "tauri": "tauri"
   },
-  "license": "MIT",
+  "license": "GPL-3.0-only",
   "packageManager": "pnpm@10.30.3",
   "devDependencies": {
     "@biomejs/biome": "^2.4.4",
