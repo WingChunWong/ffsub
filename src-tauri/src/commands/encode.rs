@@ -5,6 +5,8 @@ use crate::ffmpeg::{args, runner};
 use crate::state::AppState;
 use crate::types::{EncodeParams, VideoInfo};
 
+use std::process::Command;
+
 /// 开始编码任务
 #[tauri::command]
 pub async fn start_encode(
@@ -119,4 +121,26 @@ pub async fn get_default_output_dir() -> Result<String, String> {
     }
 
     Err("无法确定默认输出目录".to_string())
+}
+
+/// 在操作系统中打开指定路径（目录或文件）
+#[tauri::command]
+pub async fn open_path(path: String) -> Result<(), String> {
+    if !Path::new(&path).exists() {
+        return Err(format!("路径不存在: {}", path));
+    }
+
+    #[cfg(target_os = "windows")]
+    let mut cmd = Command::new("explorer");
+    #[cfg(target_os = "macos")]
+    let mut cmd = Command::new("open");
+    #[cfg(all(unix, not(target_os = "macos")))]
+    let mut cmd = Command::new("xdg-open");
+
+    cmd.arg(path);
+    cmd
+        .spawn()
+        .map_err(|e| format!("打开路径失败: {e}"))?;
+
+    Ok(())
 }

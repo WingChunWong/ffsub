@@ -1,4 +1,5 @@
 import {
+	Badge,
 	Card,
 	CardHeader,
 	makeStyles,
@@ -6,8 +7,8 @@ import {
 	Text,
 	tokens,
 } from "@fluentui/react-components";
-import { useEffect, useRef } from "react";
-import type { EncodeState } from "@/types/encode";
+import { useEffect, useMemo, useRef } from "react";
+import type { EncodeState, EncodeStatus } from "@/types/encode";
 
 const useStyles = makeStyles({
 	card: {
@@ -15,17 +16,25 @@ const useStyles = makeStyles({
 	},
 	progressInfo: {
 		display: "flex",
+		alignItems: "center",
 		justifyContent: "space-between",
 		marginTop: tokens.spacingVerticalS,
 		marginBottom: tokens.spacingVerticalS,
 	},
+	statusRow: {
+		display: "flex",
+		alignItems: "center",
+		gap: tokens.spacingHorizontalS,
+	},
 	logContainer: {
-		backgroundColor: "#1e1e1e",
-		color: "#d4d4d4",
+		backgroundColor: tokens.colorNeutralBackground1,
+		color: tokens.colorNeutralForeground1,
 		fontFamily: "'Cascadia Code', 'Consolas', monospace",
 		fontSize: "12px",
+		lineHeight: "18px",
 		padding: tokens.spacingHorizontalM,
 		borderRadius: tokens.borderRadiusMedium,
+		border: `1px solid ${tokens.colorNeutralStroke2}`,
 		maxHeight: "200px",
 		overflowY: "auto",
 		whiteSpace: "pre-wrap",
@@ -37,16 +46,16 @@ interface ProgressPanelProps {
 	state: EncodeState;
 }
 
-function statusLabel(status: EncodeState["status"]): string {
-	const labels: Record<EncodeState["status"], string> = {
-		idle: "就绪",
-		running: "压制中...",
-		completed: "压制完成",
-		error: "压制失败",
-		stopped: "已停止",
-	};
-	return labels[status];
-}
+const STATUS_CONFIG: Record<
+	EncodeStatus,
+	{ label: string; color: "informative" | "success" | "danger" | "warning" | "important" }
+> = {
+	idle: { label: "就绪", color: "informative" },
+	running: { label: "压制中...", color: "important" },
+	completed: { label: "压制完成", color: "success" },
+	error: { label: "压制失败", color: "danger" },
+	stopped: { label: "已停止", color: "warning" },
+};
 
 export function ProgressPanel({ state }: ProgressPanelProps) {
 	const styles = useStyles();
@@ -60,7 +69,15 @@ export function ProgressPanel({ state }: ProgressPanelProps) {
 	}, [logsLength]);
 
 	const percentage = state.progress?.percentage ?? 0;
-	const color =
+	const statusCfg = STATUS_CONFIG[state.status];
+
+	const progressValue = useMemo(() => {
+		if (state.status === "running" && percentage === 0) return undefined;
+		if (state.status === "idle") return 0;
+		return percentage;
+	}, [state.status, percentage]);
+
+	const progressColor =
 		state.status === "error"
 			? ("error" as const)
 			: state.status === "completed"
@@ -77,29 +94,23 @@ export function ProgressPanel({ state }: ProgressPanelProps) {
 				}
 			/>
 
-			<ProgressBar
-				max={100}
-				value={
-					state.status === "running" && percentage === 0
-						? undefined
-						: state.status === "idle"
-							? 0
-							: percentage
-				}
-				color={color}
-			/>
+			<ProgressBar max={100} value={progressValue} color={progressColor} />
 
 			<div className={styles.progressInfo}>
-				<Text>{statusLabel(state.status)}</Text>
+				<div className={styles.statusRow}>
+					<Badge appearance="filled" color={statusCfg.color}>
+						{statusCfg.label}
+					</Badge>
+				</div>
 				{state.progress && (
-					<Text>
+					<Text size={200}>
 						{state.progress.time} | {state.progress.fps} fps | {state.progress.speed}
 					</Text>
 				)}
 				{state.status !== "idle" && <Text weight="semibold">{percentage}%</Text>}
 			</div>
 
-			{state.logs.length > 0 && (
+			{logsLength > 0 && (
 				<div ref={logRef} className={styles.logContainer}>
 					{state.logs.map((log, i) => (
 						<div key={`${i}-${log.slice(0, 20)}`}>{log}</div>

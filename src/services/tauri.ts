@@ -4,91 +4,61 @@ import { open } from "@tauri-apps/plugin-dialog";
 import type { EncodeParams, EncodeProgress, VideoInfo } from "@/types/encode";
 
 export async function selectVideoFile(): Promise<string | null> {
-	const selected = await open({
-		filters: [
-			{
-				name: "视频文件",
-				extensions: ["mp4", "mkv", "avi", "mov", "flv", "wmv", "webm"],
-			},
-		],
-	});
-	return selected ?? null;
+	return (
+		(await open({
+			filters: [
+				{ name: "视频文件", extensions: ["mp4", "mkv", "avi", "mov", "flv", "wmv", "webm"] },
+			],
+		})) ?? null
+	);
 }
 
 export async function selectSubtitleFile(): Promise<string | null> {
-	const selected = await open({
-		filters: [
-			{
-				name: "字幕文件",
-				extensions: ["srt", "ass", "ssa", "vtt"],
-			},
-		],
-	});
-	return selected ?? null;
+	return (
+		(await open({
+			filters: [{ name: "字幕文件", extensions: ["srt", "ass", "ssa", "vtt"] }],
+		})) ?? null
+	);
 }
 
 export async function selectOutputDir(): Promise<string | null> {
-	const selected = await open({ directory: true });
-	return selected ?? null;
+	return (await open({ directory: true })) ?? null;
 }
 
-export async function startEncode(params: EncodeParams): Promise<string> {
-	// wrap params under the key `params` to match the Rust command signature
-	return invoke<string>("start_encode", { params } as unknown as Record<string, unknown>);
+export const startEncode = (params: EncodeParams): Promise<string> =>
+	invoke<string>("start_encode", { params } as unknown as Record<string, unknown>);
+
+export const stopEncode = (): Promise<void> => invoke("stop_encode");
+
+export const getVideoInfo = (path: string): Promise<VideoInfo> =>
+	invoke<VideoInfo>("get_video_info", { path });
+
+export const getFFmpegVersion = (): Promise<string> => invoke<string>("get_ffmpeg_version");
+
+export const getDefaultOutputDir = (): Promise<string> => invoke<string>("get_default_output_dir");
+
+export async function openPath(path: string): Promise<void> {
+	return invoke("open_path", { path } as unknown as Record<string, unknown>);
 }
 
-export async function stopEncode(): Promise<void> {
-	return invoke("stop_encode");
-}
-
-export async function getVideoInfo(path: string): Promise<VideoInfo> {
-	return invoke<VideoInfo>("get_video_info", { path });
-}
-
-export async function getFFmpegVersion(): Promise<string> {
-	return invoke<string>("get_ffmpeg_version");
-}
-
-export async function getDefaultOutputDir(): Promise<string> {
-	return invoke<string>("get_default_output_dir");
-}
-
-export function onEncodeProgress(callback: (progress: EncodeProgress) => void): () => void {
+/** 通用事件监听，修复 unlisten 竞态：若在 listen resolve 前就取消，立即卸载 */
+function onEvent<T>(event: string, cb: (payload: T) => void): () => void {
 	let unlisten: (() => void) | undefined;
-	listen<EncodeProgress>("encode-progress", (event) => {
-		callback(event.payload);
-	}).then((fn) => {
-		unlisten = fn;
+	let cancelled = false;
+	listen<T>(event, (e) => cb(e.payload)).then((fn) => {
+		if (cancelled) fn();
+		else unlisten = fn;
 	});
-	return () => unlisten?.();
+	return () => {
+		cancelled = true;
+		unlisten?.();
+	};
 }
 
-export function onEncodeComplete(callback: (outputPath: string) => void): () => void {
-	let unlisten: (() => void) | undefined;
-	listen<string>("encode-complete", (event) => {
-		callback(event.payload);
-	}).then((fn) => {
-		unlisten = fn;
-	});
-	return () => unlisten?.();
-}
+export const onEncodeProgress = (cb: (p: EncodeProgress) => void) => onEvent("encode-progress", cb);
 
-export function onEncodeError(callback: (error: string) => void): () => void {
-	let unlisten: (() => void) | undefined;
-	listen<string>("encode-error", (event) => {
-		callback(event.payload);
-	}).then((fn) => {
-		unlisten = fn;
-	});
-	return () => unlisten?.();
-}
+export const onEncodeComplete = (cb: (path: string) => void) => onEvent("encode-complete", cb);
 
-export function onEncodeLog(callback: (log: string) => void): () => void {
-	let unlisten: (() => void) | undefined;
-	listen<string>("encode-log", (event) => {
-		callback(event.payload);
-	}).then((fn) => {
-		unlisten = fn;
-	});
-	return () => unlisten?.();
-}
+export const onEncodeError = (cb: (err: string) => void) => onEvent("encode-error", cb);
+
+export const onEncodeLog = (cb: (log: string) => void) => onEvent("encode-log", cb);

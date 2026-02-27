@@ -42,77 +42,46 @@ pub fn probe_video_info(video_path: &str) -> Result<VideoInfo, String> {
     let json: serde_json::Value =
         serde_json::from_str(&stdout).map_err(|e| format!("解析 ffprobe 输出失败: {e}"))?;
 
-    // 直接使用文件扩展名作为格式（若存在），以避免 ffprobe 返回的复合 format_name 导致误判。
-    if let Some(ext) = std::path::Path::new(video_path)
+    // 优先使用扩展名，回退到 ffprobe format_name
+    let format_name = std::path::Path::new(video_path)
         .extension()
         .and_then(|s| s.to_str())
-    {
-        let ext_lower = ext.to_lowercase();
-        let format_name = ext_lower;
-
-        let duration_str = json["format"]["duration"]
-            .as_str()
-            .and_then(|d| d.parse::<f64>().ok())
-            .map(format_duration)
-            .unwrap_or_else(|| "-".to_string());
-
-        let streams = json["streams"].as_array();
-        let resolution = streams
-            .and_then(|s| s.first())
-            .map(|s| {
-                let w = s["width"].as_u64().unwrap_or(0);
-                let h = s["height"].as_u64().unwrap_or(0);
-                format!("{w}x{h}")
-            })
-            .unwrap_or_else(|| "-".to_string());
-
-        return Ok(VideoInfo {
-            format: format_name,
-            duration: duration_str,
-            resolution,
-        });
-    }
-
-    // 若无扩展名，则回退到使用 ffprobe 的 format_name 候选并按优先级选择
-    let raw_format = json["format"]["format_name"]
-        .as_str()
-        .unwrap_or("unknown")
-        .to_string();
-
-    let candidates: Vec<String> = raw_format
-        .split(',')
-        .map(|s| s.trim().to_lowercase())
-        .filter(|s| !s.is_empty())
-        .collect();
-
-    let preferred = ["mp4", "mkv", "mov", "webm", "avi", "flv", "wmv"];
-    let format_name = if let Some(p) = preferred.iter().find(|p| candidates.contains(&p.to_string())) {
-        p.to_string()
-    } else {
-        candidates.get(0).cloned().unwrap_or_else(|| "unknown".to_string())
-    };
+        .map(|ext| ext.to_lowercase())
+        .unwrap_or_else(|| resolve_format_name(&json));
 
     let duration_str = json["format"]["duration"]
         .as_str()
         .and_then(|d| d.parse::<f64>().ok())
         .map(format_duration)
-        .unwrap_or_else(|| "-".to_string());
+        .unwrap_or_else(|| "-".into());
 
-    let streams = json["streams"].as_array();
-    let resolution = streams
+    let resolution = json["streams"]
+        .as_array()
         .and_then(|s| s.first())
         .map(|s| {
             let w = s["width"].as_u64().unwrap_or(0);
             let h = s["height"].as_u64().unwrap_or(0);
             format!("{w}x{h}")
         })
-        .unwrap_or_else(|| "-".to_string());
+        .unwrap_or_else(|| "-".into());
 
     Ok(VideoInfo {
         format: format_name,
         duration: duration_str,
         resolution,
     })
+}
+
+/// 从 ffprobe JSON 中解析格式名称，按优先级选择
+fn resolve_format_name(json: &serde_json::Value) -> String {
+    let raw = json["format"]["format_name"].as_str().unwrap_or("unknown");
+    let candidates: Vec<&str> = raw.split(',').map(|s| s.trim()).filter(|s| !s.is_empty()).collect();
+    const PREFERRED: &[&str] = &["mp4", "mkv", "mov", "webm", "avi", "flv", "wmv"];
+    PREFERRED
+        .iter()
+        .find(|p| candidates.iter().any(|c| c.eq_ignore_ascii_case(p)))
+        .map(|p| p.to_string())
+        .unwrap_or_else(|| candidates.first().unwrap_or(&"unknown").to_lowercase())
 }
 
 /// 启动 FFmpeg 编码进程，并在后台线程中监控 stderr 解析进度

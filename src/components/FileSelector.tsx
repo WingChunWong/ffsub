@@ -8,7 +8,6 @@ import {
 	tokens,
 } from "@fluentui/react-components";
 import { FolderOpenRegular } from "@fluentui/react-icons";
-import { useCallback } from "react";
 
 const useStyles = makeStyles({
 	card: {
@@ -24,15 +23,18 @@ const useStyles = makeStyles({
 		flex: 1,
 	},
 	infoPanel: {
-		padding: tokens.spacingVerticalM,
-		borderLeft: `4px solid ${tokens.colorBrandBackground}`,
+		display: "flex",
+		flexWrap: "wrap",
+		gap: tokens.spacingHorizontalL,
+		padding: tokens.spacingVerticalS,
+		paddingLeft: tokens.spacingHorizontalM,
+		borderLeft: `3px solid ${tokens.colorBrandBackground}`,
 		backgroundColor: tokens.colorNeutralBackground3,
 		borderRadius: tokens.borderRadiusMedium,
 	},
-	infoRow: {
+	infoItem: {
 		display: "flex",
-		gap: tokens.spacingHorizontalS,
-		marginBottom: tokens.spacingVerticalXS,
+		gap: tokens.spacingHorizontalXS,
 	},
 });
 
@@ -47,10 +49,6 @@ interface FileSelectorProps {
 export function FileSelector({ title, path, onBrowse, placeholder, infoItems }: FileSelectorProps) {
 	const styles = useStyles();
 
-	const handleBrowse = useCallback(() => {
-		onBrowse();
-	}, [onBrowse]);
-
 	return (
 		<Card className={styles.card}>
 			<CardHeader
@@ -62,16 +60,18 @@ export function FileSelector({ title, path, onBrowse, placeholder, infoItems }: 
 			/>
 			<div className={styles.fileRow}>
 				<Input className={styles.input} value={path} placeholder={placeholder} readOnly />
-				<Button appearance="subtle" icon={<FolderOpenRegular />} onClick={handleBrowse}>
+				<Button appearance="subtle" icon={<FolderOpenRegular />} onClick={onBrowse}>
 					浏览
 				</Button>
 			</div>
 			{infoItems.length > 0 && (
 				<div className={styles.infoPanel}>
 					{infoItems.map((item) => (
-						<div key={item.label} className={styles.infoRow}>
-							<Text weight="semibold">{item.label}:</Text>
-							<Text>{item.value}</Text>
+						<div key={item.label} className={styles.infoItem}>
+							<Text size={200} weight="semibold">
+								{item.label}:
+							</Text>
+							<Text size={200}>{item.value}</Text>
 						</div>
 					))}
 				</div>

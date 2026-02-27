@@ -4,6 +4,8 @@ import {
 	makeStyles,
 	Text,
 	Title1,
+	ToolbarButton,
+	Tooltip,
 	tokens,
 	webDarkTheme,
 	webLightTheme,
@@ -13,8 +15,10 @@ import {
 	PlayRegular,
 	StopRegular,
 	SubtitlesRegular,
+	WeatherMoonRegular,
+	WeatherSunnyRegular,
 } from "@fluentui/react-icons";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { EncodingParams, FileSelector, ProgressPanel } from "@/components";
 import { useEncode } from "@/hooks/useEncode";
 import {
@@ -38,6 +42,7 @@ const useStyles = makeStyles({
 		minHeight: "100vh",
 		backgroundColor: tokens.colorNeutralBackground2,
 		padding: tokens.spacingVerticalXXL,
+		transition: "background-color 200ms ease",
 	},
 	container: {
 		maxWidth: "960px",
@@ -53,10 +58,10 @@ const useStyles = makeStyles({
 		paddingBottom: tokens.spacingVerticalL,
 		borderBottom: `1px solid ${tokens.colorNeutralStroke2}`,
 	},
-	headerRight: {
+	titleRow: {
 		display: "flex",
 		alignItems: "center",
-		gap: tokens.spacingHorizontalM,
+		gap: tokens.spacingHorizontalS,
 	},
 	subtitle: {
 		color: tokens.colorNeutralForeground3,
@@ -66,15 +71,11 @@ const useStyles = makeStyles({
 		gridTemplateColumns: "1fr 1fr",
 		gap: tokens.spacingHorizontalL,
 	},
-	outputRow: {
-		display: "flex",
-		alignItems: "center",
-		gap: tokens.spacingHorizontalM,
-	},
 	actions: {
 		display: "flex",
 		justifyContent: "center",
 		gap: tokens.spacingHorizontalL,
+		paddingTop: tokens.spacingVerticalS,
 	},
 	footer: {
 		textAlign: "center",
@@ -88,137 +89,18 @@ function extractExtension(path: string): string {
 	return (parts[parts.length - 1] ?? "").toUpperCase();
 }
 
-function SunIcon(props: { width?: number; height?: number }) {
-	const w = props.width ?? 16;
-	const h = props.height ?? 16;
-	return (
-		<svg
-			width={w}
-			height={h}
-			viewBox="0 0 24 24"
-			fill="none"
-			xmlns="http://www.w3.org/2000/svg"
-			role="img"
-			style={{ display: "block" }}
-		>
-			<title>太阳</title>
-			<circle cx="12" cy="12" r="4" fill="currentColor" />
-			<g stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
-				<path d="M12 2v2" />
-				<path d="M12 20v2" />
-				<path d="M4.93 4.93l1.41 1.41" />
-				<path d="M17.66 17.66l1.41 1.41" />
-				<path d="M2 12h2" />
-				<path d="M20 12h2" />
-				<path d="M4.93 19.07l1.41-1.41" />
-				<path d="M17.66 6.34l1.41-1.41" />
-			</g>
-		</svg>
-	);
-}
-
-function MoonIcon(props: { width?: number; height?: number }) {
-	const w = props.width ?? 16;
-	const h = props.height ?? 16;
-	return (
-		<svg
-			width={w}
-			height={h}
-			viewBox="0 0 24 24"
-			fill="none"
-			xmlns="http://www.w3.org/2000/svg"
-			role="img"
-			style={{ display: "block" }}
-		>
-			<title>月亮</title>
-			<path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z" fill="currentColor" />
-		</svg>
-	);
-}
-
-function ThemeToggleButton({ isDark, onToggle }: { isDark: boolean; onToggle: () => void }) {
-	const size = 36;
-	const btnStyle: React.CSSProperties = {
-		width: size,
-		height: size,
-		minWidth: size,
-		padding: 0,
-		lineHeight: 0,
-		borderRadius: "50%",
-		display: "inline-flex",
-		alignItems: "center",
-		justifyContent: "center",
-		transition: "background-color 220ms, color 220ms, transform 180ms",
-		backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.04)",
-	};
-
-	const iconStyle: React.CSSProperties = {
-		transition: "transform 220ms cubic-bezier(.2,.9,.2,1), opacity 180ms",
-		transform: isDark ? "rotate(0deg) scale(1)" : "rotate(0deg) scale(1)",
-	};
-
-	const sunTransform = isDark ? "rotate(20deg) scale(1.05)" : "rotate(0deg) scale(1)";
-	const moonTransform = isDark ? "rotate(0deg) scale(1)" : "rotate(-20deg) scale(1.05)";
-
-	return (
-		<Button
-			appearance="subtle"
-			aria-label="切换主题"
-			aria-pressed={isDark}
-			onClick={onToggle}
-			style={btnStyle}
-		>
-			{isDark ? (
-				<span
-					style={{
-						...iconStyle,
-						transform: sunTransform,
-						display: "flex",
-						width: "100%",
-						height: "100%",
-						alignItems: "center",
-						justifyContent: "center",
-					}}
-				>
-					<SunIcon width={18} height={18} />
-				</span>
-			) : (
-				<span
-					style={{
-						...iconStyle,
-						transform: moonTransform,
-						display: "flex",
-						width: "100%",
-						height: "100%",
-						alignItems: "center",
-						justifyContent: "center",
-					}}
-				>
-					<MoonIcon width={18} height={18} />
-				</span>
-			)}
-		</Button>
-	);
-}
-
 export default function App() {
 	const styles = useStyles();
 
-	const [isDark, setIsDark] = useState(false);
-
-	useEffect(() => {
+	const [isDark, setIsDark] = useState(() => {
 		try {
 			const stored = localStorage.getItem("theme");
-			if (stored) {
-				setIsDark(stored === "dark");
-				return;
-			}
-			const prefersDark = window.matchMedia?.("(prefers-color-scheme: dark)").matches;
-			setIsDark(Boolean(prefersDark));
+			if (stored) return stored === "dark";
+			return window.matchMedia?.("(prefers-color-scheme: dark)").matches ?? false;
 		} catch {
-			// ignore
+			return false;
 		}
-	}, []);
+	});
 
 	const toggleTheme = useCallback(() => {
 		setIsDark((prev) => {
@@ -251,8 +133,7 @@ export default function App() {
 		if (path) {
 			setVideoPath(path);
 			try {
-				const info = await getVideoInfo(path);
-				setVideoInfo(info);
+				setVideoInfo(await getVideoInfo(path));
 			} catch {
 				setVideoInfo(null);
 			}
@@ -284,6 +165,9 @@ export default function App() {
 			}
 		}
 
+		// persist chosen output dir (including default) so "打开输出目录" 可用
+		setOutputDir(finalOutput);
+
 		const params: EncodeParams = {
 			videoPath,
 			subtitlePath,
@@ -309,64 +193,108 @@ export default function App() {
 	]);
 
 	const handleOpenFolder = useCallback(async () => {
-		if (!outputDir) return;
-		const { open } = await import("@tauri-apps/plugin-shell");
-		await open(outputDir);
-	}, [outputDir]);
+		// prefer actual encode output file if present, otherwise use selected/outputDir or default
+		let targetDir = "";
+		if (encodeState.outputPath) {
+			const p = encodeState.outputPath;
+			const idx = p.lastIndexOf("\\");
+			if (idx !== -1) targetDir = p.substring(0, idx);
+			else targetDir = p;
+		} else if (outputDir) {
+			targetDir = outputDir;
+		} else {
+			try {
+				const d = await getDefaultOutputDir();
+				setOutputDir(d);
+				targetDir = d;
+			} catch {
+				return;
+			}
+		}
 
-	const theme = isDark ? webDarkTheme : webLightTheme;
+		if (!targetDir) return;
+		try {
+			// call Rust command to open path to avoid JS-side scoped-argument regex
+			try {
+				const { openPath } = await import("@/services/tauri");
+				await openPath(targetDir);
+			} catch {
+				// fallback to plugin-shell if Rust command not available
+				const { open } = await import("@tauri-apps/plugin-shell");
+				await open(targetDir);
+			}
+		} catch (err) {
+			try {
+				// show user-friendly message
+				window.alert(`打开目录失败: ${String(err)}`);
+			} catch {
+				// ignore if alert not available
+			}
+		}
+	}, [outputDir, encodeState.outputPath]);
+
+	const theme = useMemo(() => (isDark ? webDarkTheme : webLightTheme), [isDark]);
+
+	const videoInfoItems = useMemo(
+		() => [
+			{
+				label: "格式",
+				value: videoInfo?.format ?? (videoPath ? extractExtension(videoPath) : "-"),
+			},
+			{ label: "时长", value: videoInfo?.duration ?? "-" },
+			{ label: "分辨率", value: videoInfo?.resolution ?? "-" },
+		],
+		[videoInfo, videoPath],
+	);
+
+	const subtitleInfoItems = useMemo(
+		() => [
+			{ label: "格式", value: subtitlePath ? extractExtension(subtitlePath) : "-" },
+			{ label: "编码", value: "UTF-8" },
+		],
+		[subtitlePath],
+	);
 
 	return (
 		<FluentProvider theme={theme}>
-			<div className={styles.root} style={{ transition: "background-color 300ms, color 300ms" }}>
+			<div className={styles.root}>
 				<div className={styles.container}>
-					{/* Header */}
 					<div className={styles.header}>
 						<div>
-							<Title1>
-								<SubtitlesRegular /> FFSub 字幕压制工具
-							</Title1>
+							<div className={styles.titleRow}>
+								<SubtitlesRegular fontSize={28} />
+								<Title1>FFSub 字幕压制工具</Title1>
+							</div>
 							<Text className={styles.subtitle} block>
 								快速、高效地将字幕压制到视频中，支持 SRT、ASS、SSA 等格式
 							</Text>
 						</div>
-						<div className={styles.headerRight}>
-							<ThemeToggleButton isDark={isDark} onToggle={toggleTheme} />
-						</div>
+						<Tooltip content={isDark ? "切换到亮色主题" : "切换到暗色主题"} relationship="label">
+							<ToolbarButton
+								aria-label="切换主题"
+								icon={isDark ? <WeatherSunnyRegular /> : <WeatherMoonRegular />}
+								onClick={toggleTheme}
+							/>
+						</Tooltip>
 					</div>
 
-					{/* File Selection */}
 					<div className={styles.fileGrid}>
 						<FileSelector
 							title="视频文件"
 							path={videoPath}
 							onBrowse={handleSelectVideo}
 							placeholder="点击选择视频文件"
-							infoItems={[
-								{
-									label: "格式",
-									value: videoInfo?.format ?? (videoPath ? extractExtension(videoPath) : "-"),
-								},
-								{ label: "时长", value: videoInfo?.duration ?? "-" },
-								{ label: "分辨率", value: videoInfo?.resolution ?? "-" },
-							]}
+							infoItems={videoInfoItems}
 						/>
 						<FileSelector
 							title="字幕文件"
 							path={subtitlePath}
 							onBrowse={handleSelectSubtitle}
 							placeholder="点击选择字幕文件"
-							infoItems={[
-								{
-									label: "格式",
-									value: subtitlePath ? extractExtension(subtitlePath) : "-",
-								},
-								{ label: "编码", value: "UTF-8" },
-							]}
+							infoItems={subtitleInfoItems}
 						/>
 					</div>
 
-					{/* Encoding Parameters */}
 					<EncodingParams
 						outputFormat={outputFormat}
 						videoCodec={videoCodec}
@@ -380,7 +308,6 @@ export default function App() {
 						onSubtitleStyleChange={setSubtitleStyle}
 					/>
 
-					{/* Output Directory */}
 					<FileSelector
 						title="输出目录"
 						path={outputDir}
@@ -389,10 +316,8 @@ export default function App() {
 						infoItems={[]}
 					/>
 
-					{/* Progress */}
 					<ProgressPanel state={encodeState} />
 
-					{/* Actions */}
 					<div className={styles.actions}>
 						<Button
 							appearance="primary"
@@ -416,16 +341,11 @@ export default function App() {
 							appearance="subtle"
 							icon={<FolderOpenRegular />}
 							size="large"
-							disabled={!outputDir}
+							disabled={!(outputDir || encodeState.outputPath)}
 							onClick={handleOpenFolder}
 						>
 							打开输出目录
 						</Button>
-					</div>
-
-					{/* Footer */}
-					<div className={styles.footer}>
-						<Text className={styles.subtitle}>基于 FFmpeg 构建，支持 Windows、macOS 和 Linux</Text>
 					</div>
 				</div>
 			</div>
