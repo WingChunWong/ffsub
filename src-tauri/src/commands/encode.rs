@@ -87,28 +87,3 @@ pub async fn get_ffmpeg_version() -> Result<String, String> {
 pub async fn get_video_info(path: String) -> Result<VideoInfo, String> {
     runner::probe_video_info(&path)
 }
-
-/// 从 ASS/SSA 字幕文件中解析可用的样式名称
-#[tauri::command]
-pub async fn get_subtitle_styles(path: String) -> Result<Vec<String>, String> {
-    if !Path::new(&path).exists() {
-        return Err(format!("字幕文件不存在: {}", path));
-    }
-
-    let content = std::fs::read_to_string(&path).map_err(|e| format!("读取字幕文件失败: {e}"))?;
-
-    let mut names: Vec<String> = Vec::new();
-    for line in content.lines() {
-        let l = line.trim();
-        if l.starts_with("Style:") {
-            if let Some(rest) = l.splitn(2, ':').nth(1) {
-                let name = rest.split(',').next().unwrap_or("").trim().to_string();
-                if !name.is_empty() && !names.contains(&name) {
-                    names.push(name);
-                }
-            }
-        }
-    }
-
-    Ok(names)
-}

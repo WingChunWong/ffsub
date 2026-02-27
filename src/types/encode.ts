@@ -15,8 +15,6 @@ export interface EncodeParams {
 	crf: number;
 	subtitleEncoding: SubtitleEncoding;
 	subtitleStyle: SubtitleStyle;
-	/** 可选：ASS 中可用样式名称（前端可选中一个） */
-	subtitleStyleName?: string | null;
 }
 
 export interface VideoInfo {

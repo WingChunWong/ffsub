@@ -182,4 +182,3 @@ export function EncodingParams({
 		</Card>
 	);
 }
- 
