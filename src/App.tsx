@@ -17,13 +17,19 @@ import {
 import { useCallback, useEffect, useState } from "react";
 import { EncodingParams, FileSelector, ProgressPanel } from "@/components";
 import { useEncode } from "@/hooks/useEncode";
-import { selectOutputDir, selectSubtitleFile, selectVideoFile } from "@/services/tauri";
+import {
+	getVideoInfo,
+	selectOutputDir,
+	selectSubtitleFile,
+	selectVideoFile,
+} from "@/services/tauri";
 import type {
 	EncodeParams,
 	OutputFormat,
 	SubtitleEncoding,
 	SubtitleStyle,
 	VideoCodec,
+	VideoInfo,
 } from "@/types/encode";
 
 const useStyles = makeStyles({
@@ -226,6 +232,7 @@ export default function App() {
 	}, []);
 
 	const [videoPath, setVideoPath] = useState("");
+	const [videoInfo, setVideoInfo] = useState<VideoInfo | null>(null);
 	const [subtitlePath, setSubtitlePath] = useState("");
 	const [outputDir, setOutputDir] = useState("");
 
@@ -240,7 +247,18 @@ export default function App() {
 
 	const handleSelectVideo = useCallback(async () => {
 		const path = await selectVideoFile();
-		if (path) setVideoPath(path);
+		if (path) {
+			setVideoPath(path);
+			try {
+				const info = await getVideoInfo(path);
+				setVideoInfo(info);
+			} catch {
+				setVideoInfo(null);
+			}
+		} else {
+			setVideoPath("");
+			setVideoInfo(null);
+		}
 	}, []);
 
 	const handleSelectSubtitle = useCallback(async () => {
@@ -317,10 +335,10 @@ export default function App() {
 							infoItems={[
 								{
 									label: "格式",
-									value: videoPath ? extractExtension(videoPath) : "-",
+									value: videoInfo?.format ?? (videoPath ? extractExtension(videoPath) : "-"),
 								},
-								{ label: "时长", value: "-" },
-								{ label: "分辨率", value: "-" },
+								{ label: "时长", value: videoInfo?.duration ?? "-" },
+								{ label: "分辨率", value: videoInfo?.resolution ?? "-" },
 							]}
 						/>
 						<FileSelector
@@ -334,7 +352,6 @@ export default function App() {
 									value: subtitlePath ? extractExtension(subtitlePath) : "-",
 								},
 								{ label: "编码", value: "UTF-8" },
-								{ label: "语言", value: "-" },
 							]}
 						/>
 					</div>
