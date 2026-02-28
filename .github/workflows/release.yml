@@ -1,0 +1,98 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch: {}
+
+jobs:
+  build-and-release:
+    name: Build and publish release
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Prepare pnpm
+        run: corepack prepare pnpm@latest --activate
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build frontend
+        run: pnpm build
+
+      - name: Setup Rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          profile: minimal
+          override: true
+
+      - name: Build Tauri (release)
+        working-directory: ./src-tauri
+        run: |
+          cargo build --release
+          if command -v cargo-tauri >/dev/null 2>&1; then
+            cargo tauri build
+          elif command -v tauri >/dev/null 2>&1; then
+            tauri build
+          fi
+
+      - name: Archive frontend dist
+        if: always()
+        run: |
+          if [ -d dist ]; then
+            zip -r frontend-${{ github.ref_name }}.zip dist
+          else
+            echo "no frontend dist directory"
+          fi
+
+      - name: Archive tauri bundles
+        if: always()
+        run: |
+          if [ -d src-tauri/target/release/bundle ]; then
+            zip -r tauri-bundles-${{ github.ref_name }}.zip src-tauri/target/release/bundle || true
+          else
+            echo "no tauri bundle directory"
+          fi
+
+      - name: Create GitHub Release
+        id: create_release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: Release ${{ github.ref_name }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload frontend asset
+        if: steps.create_release.outputs.upload_url != '' && (files.exists('frontend-' + github.ref_name + '.zip') || true)
+        run: |
+          if [ -f frontend-${{ github.ref_name }}.zip ]; then
+            gh release upload ${{ github.ref_name }} frontend-${{ github.ref_name }}.zip --clobber
+          else
+            echo "skipping frontend upload"
+          fi
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload tauri bundles asset
+        if: steps.create_release.outputs.upload_url != ''
+        run: |
+          if [ -f tauri-bundles-${{ github.ref_name }}.zip ]; then
+            gh release upload ${{ github.ref_name }} tauri-bundles-${{ github.ref_name }}.zip --clobber
+          else
+            echo "skipping tauri bundles upload"
+          fi
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
