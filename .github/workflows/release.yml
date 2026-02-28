@@ -41,7 +41,7 @@ jobs:
             librsvg2-dev \
             build-essential \
             libssl-dev
-            
+
       - name: Cache Cargo
         uses: actions/cache@v4
         with:
@@ -61,7 +61,7 @@ jobs:
           override: true
 
       - name: Build Tauri (release)
-        run: tauri build --verbose
+        run: pnpm tauri build --verbose
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4

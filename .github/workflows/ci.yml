@@ -65,7 +65,7 @@ jobs:
           override: true
 
       - name: Build Tauri (release)
-        run: tauri build --verbose
+        run: pnpm tauri build --verbose
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
