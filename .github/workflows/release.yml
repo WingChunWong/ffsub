@@ -19,10 +19,8 @@ jobs:
         with:
           node-version: '20'
 
-      - uses: pnpm/action-setup@v4
-        name: Install pnpm
-        with:
-          cache: true
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
 
       - name: Install dependencies
         run: pnpm install
@@ -37,33 +35,9 @@ jobs:
           profile: minimal
           override: true
 
-      - name: Build Tauri (release)
-        working-directory: ./src-tauri
+      - name: Build Tauri
         run: |
-          cargo build --release
-          if command -v cargo-tauri >/dev/null 2>&1; then
-            cargo tauri build
-          elif command -v tauri >/dev/null 2>&1; then
-            tauri build
-          fi
-
-      - name: Archive frontend dist
-        if: always()
-        run: |
-          if [ -d dist ]; then
-            zip -r frontend-${{ github.ref_name }}.zip dist
-          else
-            echo "no frontend dist directory"
-          fi
-
-      - name: Archive tauri bundles
-        if: always()
-        run: |
-          if [ -d src-tauri/target/release/bundle ]; then
-            zip -r tauri-bundles-${{ github.ref_name }}.zip src-tauri/target/release/bundle || true
-          else
-            echo "no tauri bundle directory"
-          fi
+          tauri build --verbose
 
       - name: Create GitHub Release
         id: create_release
@@ -71,27 +45,5 @@ jobs:
         with:
           tag_name: ${{ github.ref_name }}
           name: Release ${{ github.ref_name }}
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Upload frontend asset
-        if: steps.create_release.outputs.upload_url != ''
-        run: |
-          if [ -f frontend-${{ github.ref_name }}.zip ]; then
-            gh release upload ${{ github.ref_name }} frontend-${{ github.ref_name }}.zip --clobber
-          else
-            echo "skipping frontend upload"
-          fi
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Upload tauri bundles asset
-        if: steps.create_release.outputs.upload_url != ''
-        run: |
-          if [ -f tauri-bundles-${{ github.ref_name }}.zip ]; then
-            gh release upload ${{ github.ref_name }} tauri-bundles-${{ github.ref_name }}.zip --clobber
-          else
-            echo "skipping tauri bundles upload"
-          fi
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
