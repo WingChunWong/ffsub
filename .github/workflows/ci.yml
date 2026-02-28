@@ -8,22 +8,22 @@ on:
 
 jobs:
   build:
-    name: Build (matrix)
+    name: Build (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-latest, windows-latest]
+        os: [ubuntu-latest, windows-latest]   # 可扩展 macos-latest
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup Node.js
+      - name: Setup Node.js (LTS)
         uses: actions/setup-node@v4
         with:
-          node-version: '23'
+          node-version: '20'
 
-      - uses: pnpm/action-setup@v4
-        name: Install pnpm
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
         with:
           cache: true
 
@@ -32,6 +32,18 @@ jobs:
 
       - name: Run linters / checks
         run: pnpm check
+
+      # Linux 系统依赖（仅 ubuntu）
+      - name: Install Linux dependencies
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.0-dev \
+            libwebkit2gtk-4.1-dev \
+            libgtk-3-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev
 
       - name: Cache Cargo
         uses: actions/cache@v4
@@ -44,6 +56,7 @@ jobs:
           restore-keys: |
             cargo-${{ runner.os }}-
 
+      # Rust 工具链安装（使用社区 action）
       - name: Setup Rust toolchain
         uses: actions-rs/toolchain@v1
         with:
@@ -51,15 +64,18 @@ jobs:
           profile: minimal
           override: true
 
-      - name: Cargo build (release)
+      - name: Build Tauri (release)
         run: tauri build --verbose
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: tauri-target-${{ matrix.os }}
+          name: tauri-${{ matrix.os }}
           path: |
             src-tauri/target/release/bundle/msi
             src-tauri/target/release/bundle/nsis
             src-tauri/target/release/bundle/deb
             src-tauri/target/release/bundle/rpm
+            src-tauri/target/release/bundle/dmg
+            src-tauri/target/release/bundle/macos
+          if-no-files-found: ignore
