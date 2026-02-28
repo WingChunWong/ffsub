@@ -76,7 +76,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload frontend asset
-        if: steps.create_release.outputs.upload_url != '' && (files.exists('frontend-' + github.ref_name + '.zip') || true)
+        if: steps.create_release.outputs.upload_url != ''
         run: |
           if [ -f frontend-${{ github.ref_name }}.zip ]; then
             gh release upload ${{ github.ref_name }} frontend-${{ github.ref_name }}.zip --clobber
