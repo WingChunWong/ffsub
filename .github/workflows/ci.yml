@@ -52,7 +52,6 @@ jobs:
           override: true
 
       - name: Cargo build (release)
-        working-directory: ./src-tauri
         run: tauri build --verbose
 
       - name: Upload build artifacts
