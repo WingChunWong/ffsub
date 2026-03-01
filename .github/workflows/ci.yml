@@ -58,14 +58,10 @@ jobs:
 
       # Rust 工具链安装（使用社区 action）
       - name: Setup Rust toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          profile: minimal
-          override: true
+        uses: dtolnay/rust-toolchain@stable
 
       - name: Build Tauri (release)
-        run: pnpm tauri build --verbose
+        run: cargo tauri build --verbose
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
