@@ -94,17 +94,31 @@ jobs:
             const tag = context.ref.replace('refs/tags/', '');
             const releaseName = `Release ${tag}`;
 
-            // 创建 Release
-            const release = await github.rest.repos.createRelease({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              tag_name: tag,
-              name: releaseName,
-              draft: false,
-              prerelease: false
-            });
-
-            console.log(`Release created: ${release.data.html_url}`);
+            // 创建或获取 Release
+            let release;
+            try {
+              release = await github.rest.repos.createRelease({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                tag_name: tag,
+                name: releaseName,
+                draft: false,
+                prerelease: false
+              });
+              console.log(`Release created: ${release.data.html_url}`);
+            } catch (error) {
+              if (error.status === 422) {
+                // Release 已存在，获取现有的
+                release = await github.rest.repos.getReleaseByTag({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  tag: tag
+                });
+                console.log(`Release already exists: ${release.data.html_url}`);
+              } else {
+                throw error;
+              }
+            }
 
             // 遍历 artifacts 目录，上传所有文件
             const artifactsDir = 'artifacts';
@@ -123,16 +137,36 @@ jobs:
             }
             walk(artifactsDir);
 
+            // 获取现有的资源列表
+            const assets = await github.rest.repos.listReleaseAssets({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              release_id: release.data.id
+            });
+
             for (const file of files) {
               const stat = fs.statSync(file);
               if (stat.size === 0) continue; // 忽略空文件
+
+              const fileName = path.basename(file);
+              
+              // 检查资源是否已存在
+              const existingAsset = assets.data.find(a => a.name === fileName);
+              if (existingAsset) {
+                console.log(`Deleting existing asset: ${fileName}`);
+                await github.rest.repos.deleteReleaseAsset({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  asset_id: existingAsset.id
+                });
+              }
 
               console.log(`Uploading ${file}...`);
               await github.rest.repos.uploadReleaseAsset({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 release_id: release.data.id,
-                name: path.basename(file),
+                name: fileName,
                 data: fs.readFileSync(file)
               });
             }
