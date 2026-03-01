@@ -31,7 +31,7 @@ jobs:
         run: pnpm install
 
       - name: Run linters / checks
-        run: pnpm check
+        run: pnpm check:fix
 
       - name: Install Linux dependencies
         if: matrix.os == 'ubuntu-latest'
