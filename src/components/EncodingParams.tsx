@@ -42,51 +42,43 @@ interface EncodingParamsProps {
 	onSubtitleStyleChange: (value: SubtitleStyle) => void;
 }
 
-interface DropdownOption<T extends string> {
-	value: T;
+const OPTIONS = {
+	format: [
+		{ value: "mp4" as const, label: "MP4 (H.264)" },
+		{ value: "mkv" as const, label: "MKV (H.265)" },
+		{ value: "avi" as const, label: "AVI" },
+		{ value: "mov" as const, label: "MOV" },
+	],
+	codec: [
+		{ value: "libx264" as const, label: "H.264 (libx264)" },
+		{ value: "libx265" as const, label: "H.265 (libx265)" },
+		{ value: "copy" as const, label: "复制原始流" },
+	],
+	encoding: [
+		{ value: "utf8" as const, label: "UTF-8" },
+		{ value: "gbk" as const, label: "GBK" },
+		{ value: "big5" as const, label: "Big5" },
+	],
+	style: [
+		{ value: "default" as const, label: "默认" },
+		{ value: "custom" as const, label: "自定义 ASS 样式" },
+	],
+};
+
+interface SelectFieldProps<T extends string> {
 	label: string;
+	value: T;
+	options: Array<{ value: T; label: string }>;
+	onChange: (val: T) => void;
 }
 
-const FORMAT_OPTIONS: DropdownOption<OutputFormat>[] = [
-	{ value: "mp4", label: "MP4 (H.264)" },
-	{ value: "mkv", label: "MKV (H.265)" },
-	{ value: "avi", label: "AVI" },
-	{ value: "mov", label: "MOV" },
-];
+function SelectField<T extends string>({ label, value, options, onChange }: SelectFieldProps<T>) {
+	const selected = options.find((o) => o.value === value)?.label;
 
-const CODEC_OPTIONS: DropdownOption<VideoCodec>[] = [
-	{ value: "libx264", label: "H.264 (libx264)" },
-	{ value: "libx265", label: "H.265 (libx265)" },
-	{ value: "copy", label: "复制原始流" },
-];
-
-const ENCODING_OPTIONS: DropdownOption<SubtitleEncoding>[] = [
-	{ value: "utf8", label: "UTF-8" },
-	{ value: "gbk", label: "GBK" },
-	{ value: "big5", label: "Big5" },
-];
-
-const STYLE_OPTIONS: DropdownOption<SubtitleStyle>[] = [
-	{ value: "default", label: "默认" },
-	{ value: "custom", label: "自定义 ASS 样式" },
-];
-
-function SelectField<T extends string>({
-	label,
-	options,
-	value,
-	onChange,
-}: {
-	label: string;
-	options: DropdownOption<T>[];
-	value: T;
-	onChange: (v: T) => void;
-}) {
-	const selected = options.find((o) => o.value === value);
 	return (
 		<Field label={label}>
 			<Dropdown
-				value={selected?.label}
+				value={selected}
 				selectedOptions={[value]}
 				onOptionSelect={(_, data) => {
 					if (data.optionValue) onChange(data.optionValue as T);
@@ -134,13 +126,13 @@ export function EncodingParams({
 			<div className={styles.grid}>
 				<SelectField
 					label="输出格式"
-					options={FORMAT_OPTIONS}
+					options={OPTIONS.format}
 					value={outputFormat}
 					onChange={onOutputFormatChange}
 				/>
 				<SelectField
 					label="视频编码器"
-					options={CODEC_OPTIONS}
+					options={OPTIONS.codec}
 					value={videoCodec}
 					onChange={onVideoCodecChange}
 				/>
@@ -155,13 +147,13 @@ export function EncodingParams({
 			<div className={styles.grid}>
 				<SelectField
 					label="字幕编码"
-					options={ENCODING_OPTIONS}
+					options={OPTIONS.encoding}
 					value={subtitleEncoding}
 					onChange={onSubtitleEncodingChange}
 				/>
 				<SelectField
 					label="字幕样式"
-					options={STYLE_OPTIONS}
+					options={OPTIONS.style}
 					value={subtitleStyle}
 					onChange={onSubtitleStyleChange}
 				/>

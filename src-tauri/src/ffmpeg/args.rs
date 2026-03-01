@@ -71,88 +71,61 @@ pub fn build_output_path(params: &EncodeParams) -> String {
 
 /// 为编码任务构建完整的 FFmpeg 参数列表
 pub fn build_encode_args(params: &EncodeParams, output_path: &str) -> Vec<String> {
-    let subtitle_filter = build_subtitle_filter(params);
+	let subtitle_filter = build_subtitle_filter(params);
+	let hw = GPU_ENCODER_CACHE.get_or_init(detect_gpu_encoder).as_deref();
+	let selected_codec = select_codec(params.video_codec.as_str(), hw);
 
-    // 使用缓存的硬件编码器检测结果
-    let hw = GPU_ENCODER_CACHE
-        .get_or_init(detect_gpu_encoder)
-        .as_deref();
+	let final_codec = if selected_codec == "copy" {
+		log::warn!("用户选择了 'copy' 编码，但使用了字幕滤镜，已改为 libx264 以支持滤镜");
+		"libx264".to_string()
+	} else {
+		selected_codec
+	};
 
-    // 根据用户选择的逻辑编码器和检测到的硬件支持，选择实际使用的编码器
-    let selected_codec = match params.video_codec.as_str() {
-        "libx264" => match hw {
-            Some("nvenc") => "h264_nvenc",
-            Some("qsv") => "h264_qsv",
-            Some("vaapi") => "h264_vaapi",
-            Some("amf") => "h264_amf",
-            _ => "libx264",
-        },
-        "libx265" => match hw {
-            Some("nvenc") => "hevc_nvenc",
-            Some("qsv") => "hevc_qsv",
-            Some("vaapi") => "hevc_vaapi",
-            Some("amf") => "hevc_amf",
-            _ => "libx265",
-        },
-        other => other,
-    };
+	let crf_str = params.crf.to_string();
+	let threads = "0";
+	let mut args = vec![
+		"-i".to_string(),
+		params.video_path.clone(),
+		"-vf".to_string(),
+		subtitle_filter,
+		"-c:v".to_string(),
+		final_codec,
+	];
 
-    let mut args = vec![
-        "-i".to_string(),
-        params.video_path.clone(),
-        "-vf".to_string(),
-        subtitle_filter,
-    ];
+	if params.video_codec != "copy" {
+		let is_hw = matches!(hw, Some("nvenc" | "qsv" | "amf" | "vaapi"));
+		if is_hw && !matches!(args[5].as_str(), "libx264" | "libx265") {
+			args.extend(vec!["-global_quality".to_string(), crf_str]);
+		} else {
+			args.extend(vec!["-crf".to_string(), crf_str, "-preset".to_string(), "medium".to_string()]);
+		}
+	}
 
-    // 视频编码器
-    args.push("-c:v".to_string());
-    // 如果用户选择了 copy，但我们使用了 subtitle filter，streamcopy 与滤镜不能共存
-    let final_codec = if selected_codec == "copy" {
-        log::warn!("用户选择了 'copy' 编码，但使用了字幕滤镜，已改为 libx264 以支持滤镜");
-        "libx264"
-    } else {
-        selected_codec
-    };
+	args.extend(vec!["-threads".to_string(), threads.to_string(), "-c:a".to_string(), "copy".to_string()]);
 
-    args.push(final_codec.to_string());
+	if params.output_format == "mp4" {
+		args.extend(vec!["-movflags".to_string(), "+faststart".to_string()]);
+	}
 
-    // 质量参数：软件编码用 CRF，硬件编码用对应的质量参数
-    if params.video_codec != "copy" {
-        let is_hw = matches!(hw, Some("nvenc" | "qsv" | "amf" | "vaapi"));
-        if is_hw && final_codec != "libx264" && final_codec != "libx265" {
-            // 硬件编码器使用全局质量参数，数值映射与 CRF 近似
-            args.push("-global_quality".to_string());
-            args.push(params.crf.to_string());
-        } else {
-            args.push("-crf".to_string());
-            args.push(params.crf.to_string());
-            // 软件编码使用较快的预设以平衡速度和质量
-            args.push("-preset".to_string());
-            args.push("medium".to_string());
-        }
-    }
+	args.extend(vec!["-y".to_string(), output_path.to_string()]);
+	args
+}
 
-    // 启用多线程（0 = 自动检测 CPU 核心数）
-    args.push("-threads".to_string());
-    args.push("0".to_string());
-
-    // 音频直接复制
-    args.push("-c:a".to_string());
-    args.push("copy".to_string());
-
-    // MP4 格式启用 faststart，将 moov atom 移到文件开头，加速播放启动
-    if params.output_format == "mp4" {
-        args.push("-movflags".to_string());
-        args.push("+faststart".to_string());
-    }
-
-    // 覆盖已有文件
-    args.push("-y".to_string());
-
-    // 输出路径
-    args.push(output_path.to_string());
-
-    args
+/// 选择合适的视频编码器码率（包含硬件加速支持）
+fn select_codec(user_choice: &str, hw: Option<&str>) -> String {
+	let codec = match (user_choice, hw) {
+		("libx264", Some("nvenc")) => "h264_nvenc",
+		("libx264", Some("qsv")) => "h264_qsv",
+		("libx264", Some("vaapi")) => "h264_vaapi",
+		("libx264", Some("amf")) => "h264_amf",
+		("libx265", Some("nvenc")) => "hevc_nvenc",
+		("libx265", Some("qsv")) => "hevc_qsv",
+		("libx265", Some("vaapi")) => "hevc_vaapi",
+		("libx265", Some("amf")) => "hevc_amf",
+		_ => user_choice,
+	};
+	codec.to_string()
 }
 
 /// 检测系统上是否存在支持的硬件编码器（结果通过 OnceLock 缓存）

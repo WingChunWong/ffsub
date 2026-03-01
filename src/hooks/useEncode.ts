@@ -31,13 +31,11 @@ const MAX_LOGS = 500;
 function encodeReducer(state: EncodeState, action: EncodeAction): EncodeState {
 	switch (action.type) {
 		case "START":
-			return {
-				...initialState,
-				status: "running",
-				logs: ["正在启动FFmpeg..."],
-			};
+			return { ...initialState, status: "running", logs: ["正在启动FFmpeg..."] };
+
 		case "PROGRESS":
 			return { ...state, progress: action.payload };
+
 		case "LOG": {
 			const newLogs = [...state.logs, action.payload];
 			return {
@@ -45,6 +43,7 @@ function encodeReducer(state: EncodeState, action: EncodeAction): EncodeState {
 				logs: newLogs.length > MAX_LOGS ? newLogs.slice(-MAX_LOGS) : newLogs,
 			};
 		}
+
 		case "COMPLETE":
 			return {
 				...state,
@@ -53,6 +52,7 @@ function encodeReducer(state: EncodeState, action: EncodeAction): EncodeState {
 				logs: [...state.logs, `✅ 压制完成！输出文件: ${action.payload}`],
 				progress: state.progress ? { ...state.progress, percentage: 100 } : null,
 			};
+
 		case "ERROR":
 			return {
 				...state,
@@ -60,14 +60,13 @@ function encodeReducer(state: EncodeState, action: EncodeAction): EncodeState {
 				error: action.payload,
 				logs: [...state.logs, `❌ 错误: ${action.payload}`],
 			};
+
 		case "STOP":
-			return {
-				...state,
-				status: "stopped",
-				logs: [...state.logs, "⏹️ 用户请求停止"],
-			};
+			return { ...state, status: "stopped", logs: [...state.logs, "⏹️ 用户请求停止"] };
+
 		case "RESET":
 			return initialState;
+
 		default:
 			return state;
 	}
@@ -75,33 +74,26 @@ function encodeReducer(state: EncodeState, action: EncodeAction): EncodeState {
 
 export function useEncode() {
 	const [state, dispatch] = useReducer(encodeReducer, initialState);
-	const statusRef = useRef<EncodeStatus>("idle");
+	const statusRef = useRef<EncodeStatus>(state.status);
 	statusRef.current = state.status;
 
 	useEffect(() => {
-		const unlistenProgress = onEncodeProgress((progress) => {
-			if (statusRef.current === "running") {
-				dispatch({ type: "PROGRESS", payload: progress });
-			}
-		});
-		const unlistenComplete = onEncodeComplete((outputPath) => {
-			dispatch({ type: "COMPLETE", payload: outputPath });
-		});
-		const unlistenError = onEncodeError((error) => {
-			dispatch({ type: "ERROR", payload: error });
-		});
-		const unlistenLog = onEncodeLog((log) => {
-			if (statusRef.current === "running") {
-				dispatch({ type: "LOG", payload: log });
-			}
-		});
+		// 统一处理事件监听，减少代码重复
+		const unlisteners = [
+			onEncodeProgress((progress) => {
+				if (statusRef.current === "running") dispatch({ type: "PROGRESS", payload: progress });
+			}),
+			onEncodeComplete((outputPath) => dispatch({ type: "COMPLETE", payload: outputPath })),
+			onEncodeError((error) => dispatch({ type: "ERROR", payload: error })),
+			onEncodeLog((log) => {
+				if (statusRef.current === "running") dispatch({ type: "LOG", payload: log });
+			}),
+		];
 
-		return () => {
-			unlistenProgress();
-			unlistenComplete();
-			unlistenError();
-			unlistenLog();
-		};
+		return () =>
+			unlisteners.forEach((fn) => {
+				fn();
+			});
 	}, []);
 
 	const start = useCallback(async (params: EncodeParams) => {

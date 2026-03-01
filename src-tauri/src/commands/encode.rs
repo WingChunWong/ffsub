@@ -1,54 +1,45 @@
 use std::path::Path;
+use std::process::Command;
 use tauri::State;
 
 use crate::ffmpeg::{args, runner};
 use crate::state::AppState;
 use crate::types::{EncodeParams, VideoInfo};
 
-use std::process::Command;
+/// 验证编码参数的有效性
+fn validate_encode_params(params: &EncodeParams) -> Result<(), String> {
+	let checks = [
+		(!Path::new(&params.video_path).exists(), format!("视频文件不存在: {}", params.video_path)),
+		(!Path::new(&params.subtitle_path).exists(), format!("字幕文件不存在: {}", params.subtitle_path)),
+		(!Path::new(&params.output_dir).is_dir(), format!("输出目录无效: {}", params.output_dir)),
+	];
+
+	checks.iter().find_map(|(cond, msg)| if *cond { Some(Err(msg.clone())) } else { None }).unwrap_or(Ok(()))
+}
 
 /// 开始编码任务
 #[tauri::command]
 pub async fn start_encode(
-    params: EncodeParams,
-    state: State<'_, AppState>,
-    app_handle: tauri::AppHandle,
+	params: EncodeParams,
+	state: State<'_, AppState>,
+	app_handle: tauri::AppHandle,
 ) -> Result<String, String> {
-    // 检查是否已有任务在运行
-    if state.is_running()? {
-        return Err("已有编码任务在运行".to_string());
-    }
+	if state.is_running()? {
+		return Err("已有编码任务在运行".to_string());
+	}
 
-    // 验证输入文件
-    if !Path::new(&params.video_path).exists() {
-        return Err(format!("视频文件不存在: {}", params.video_path));
-    }
-    if !Path::new(&params.subtitle_path).exists() {
-        return Err(format!("字幕文件不存在: {}", params.subtitle_path));
-    }
-    if !Path::new(&params.output_dir).is_dir() {
-        return Err(format!("输出目录无效: {}", params.output_dir));
-    }
+	validate_encode_params(&params)?;
 
-    // 探测视频时长
-    match runner::probe_duration(&params.video_path) {
-        Ok(duration) => {
-            state.set_total_duration(duration)?;
-        }
-        Err(e) => {
-            log::warn!("无法探测视频时长: {e}，进度百分比将不可用");
-            state.set_total_duration(0.0)?;
-        }
-    }
+	let duration = runner::probe_duration(&params.video_path).unwrap_or_else(|_| {
+		log::warn!("无法探测视频时长: 进度百分比将不可用");
+		0.0
+	});
+	state.set_total_duration(duration)?;
 
-    // 设置运行状态
-    state.set_running(true)?;
+	state.set_running(true)?;
+	let output_path = args::build_output_path(&params);
 
-    // 构建输出路径
-    let output_path = args::build_output_path(&params);
-
-    // 启动编码
-    match runner::spawn_encode(&params, &output_path, &state, &app_handle) {
+	match runner::spawn_encode(&params, &output_path, &state, &app_handle) {
         Ok(()) => {
             log::info!("FFmpeg 进程已启动，输出: {output_path}");
             Ok(format!("编码已开始，输出文件: {output_path}"))

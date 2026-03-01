@@ -24,12 +24,12 @@ import { useEncode } from "@/hooks/useEncode";
 import {
 	getDefaultOutputDir,
 	getVideoInfo,
+	openPath,
 	selectOutputDir,
 	selectSubtitleFile,
 	selectVideoFile,
 } from "@/services/tauri";
 import type {
-	EncodeParams,
 	OutputFormat,
 	SubtitleEncoding,
 	SubtitleStyle,
@@ -85,22 +85,45 @@ const useStyles = makeStyles({
 });
 
 function extractExtension(path: string): string {
-	const parts = path.split(".");
-	return (parts[parts.length - 1] ?? "").toUpperCase();
+	return path.split(".").pop()?.toUpperCase() ?? "";
 }
+
+const initializeTheme = (): boolean => {
+	try {
+		const stored = localStorage.getItem("theme");
+		if (stored) return stored === "dark";
+		return window.matchMedia?.("(prefers-color-scheme: dark)").matches ?? false;
+	} catch {
+		return false;
+	}
+};
+
+const getTargetDirectory = async (
+	outputPath: string | null,
+	selectedDir: string,
+	videoPath: string,
+): Promise<string> => {
+	// 首先使用已编码的输出路径
+	if (outputPath) {
+		const idx = outputPath.lastIndexOf("\\");
+		return idx !== -1 ? outputPath.substring(0, idx) : outputPath;
+	}
+
+	// 其次使用已选择的输出目录
+	if (selectedDir) return selectedDir;
+
+	// 最后尝试获取默认输出目录或从视频路径提取
+	try {
+		return await getDefaultOutputDir();
+	} catch {
+		return videoPath.substring(0, videoPath.lastIndexOf("\\"));
+	}
+};
 
 export default function App() {
 	const styles = useStyles();
 
-	const [isDark, setIsDark] = useState(() => {
-		try {
-			const stored = localStorage.getItem("theme");
-			if (stored) return stored === "dark";
-			return window.matchMedia?.("(prefers-color-scheme: dark)").matches ?? false;
-		} catch {
-			return false;
-		}
-	});
+	const [isDark, setIsDark] = useState(initializeTheme);
 
 	const toggleTheme = useCallback(() => {
 		setIsDark((prev) => {
@@ -156,19 +179,14 @@ export default function App() {
 	const handleStart = useCallback(async () => {
 		if (!videoPath || !subtitlePath) return;
 
-		let finalOutput = outputDir;
-		if (!finalOutput) {
-			try {
-				finalOutput = await getDefaultOutputDir();
-			} catch {
-				finalOutput = videoPath.substring(0, videoPath.lastIndexOf("\\"));
-			}
-		}
-
-		// persist chosen output dir (including default) so "打开输出目录" 可用
+		const finalOutput =
+			outputDir ||
+			(await getDefaultOutputDir().catch(() =>
+				videoPath.substring(0, videoPath.lastIndexOf("\\")),
+			));
 		setOutputDir(finalOutput);
 
-		const params: EncodeParams = {
+		await start({
 			videoPath,
 			subtitlePath,
 			outputDir: finalOutput,
@@ -177,9 +195,7 @@ export default function App() {
 			crf,
 			subtitleEncoding,
 			subtitleStyle,
-		};
-
-		await start(params);
+		});
 	}, [
 		videoPath,
 		subtitlePath,
@@ -193,45 +209,20 @@ export default function App() {
 	]);
 
 	const handleOpenFolder = useCallback(async () => {
-		// prefer actual encode output file if present, otherwise use selected/outputDir or default
-		let targetDir = "";
-		if (encodeState.outputPath) {
-			const p = encodeState.outputPath;
-			const idx = p.lastIndexOf("\\");
-			if (idx !== -1) targetDir = p.substring(0, idx);
-			else targetDir = p;
-		} else if (outputDir) {
-			targetDir = outputDir;
-		} else {
-			try {
-				const d = await getDefaultOutputDir();
-				setOutputDir(d);
-				targetDir = d;
-			} catch {
-				return;
-			}
-		}
-
-		if (!targetDir) return;
 		try {
-			// call Rust command to open path to avoid JS-side scoped-argument regex
+			const targetDir = await getTargetDirectory(encodeState.outputPath, outputDir, videoPath);
+			if (!targetDir) return;
+
 			try {
-				const { openPath } = await import("@/services/tauri");
 				await openPath(targetDir);
 			} catch {
-				// fallback to plugin-shell if Rust command not available
 				const { open } = await import("@tauri-apps/plugin-shell");
 				await open(targetDir);
 			}
 		} catch (err) {
-			try {
-				// show user-friendly message
-				window.alert(`打开目录失败: ${String(err)}`);
-			} catch {
-				// ignore if alert not available
-			}
+			window.alert?.(`打开目录失败: ${String(err)}`);
 		}
-	}, [outputDir, encodeState.outputPath]);
+	}, [outputDir, encodeState.outputPath, videoPath]);
 
 	const theme = useMemo(() => (isDark ? webDarkTheme : webLightTheme), [isDark]);
 
